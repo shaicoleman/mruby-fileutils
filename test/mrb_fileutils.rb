@@ -15,8 +15,8 @@ assert("FileUtils#pwd") do
 end
 
 assert("FileUtils#cd") do
-  FileUtils.cd '/tmp', {verbose: true}
-  assert_equal File.realpath('/tmp'), FileUtils.pwd
+  FileUtils.cd Dir.tmpdir, {verbose: true}
+  assert_equal File.realpath(Dir.tmpdir), FileUtils.pwd
 end
 
 assert("FileUtils#uptodate?") do
@@ -81,4 +81,116 @@ assert("FileUtils#rmdir") do
   FileUtils.rmdir path_depth, {verbose: true, parents: true}
 
   assert_false Dir.exist? path
+end
+
+assert 'FileUtils#remove_file' do
+  path = File.join Dir.tmpdir, "rm_#{SecureRandom.hex}"
+  File.open path, 'w' do |f|
+    f.write 'test'
+  end
+  assert_true File.exists? path
+
+  FileUtils.remove_file path, verbose: true
+  assert_false File.exists? path
+
+  assert_false File.exists? path
+  FileUtils.remove_file path, verbose: true, force: true
+  assert_false File.exists? path
+
+  assert_raise RuntimeError do
+    FileUtils.remove_file path, verbose: true
+  end
+end
+
+assert 'FileUtils#rm_r' do
+  path = File.join Dir.tmpdir, "rm_r_#{SecureRandom.hex}"
+
+  FileUtils.mkdir path
+  File.open File.join(path, 'test'), 'w' do |f|
+    f.write 'test'
+  end
+  assert_true Dir.exists? path
+
+  FileUtils.rm_r path, verbose: true
+  assert_false Dir.exists? path
+
+  File.open path, 'w' do |f|
+    f.write 'test'
+  end
+  assert_true File.exists? path
+  FileUtils.rm_r path, verbose: true
+  assert_false File.exists? path
+
+  assert_false File.exists? path
+  FileUtils.rm_r path, verbose: true, force: true
+  assert_false File.exists? path
+
+  assert_raise RuntimeError do
+    FileUtils.rm_r path, verbose: true
+  end
+end
+
+assert 'FileUtils#rm_rf' do
+  path = File.join Dir.tmpdir, "rm_r_#{SecureRandom.hex}"
+
+  FileUtils.mkdir path
+  File.open File.join(path, 'test'), 'w' do |f|
+    f.write 'test'
+  end
+  assert_true Dir.exists? path
+
+  FileUtils.rm_rf path, verbose: true
+  assert_false Dir.exists? path
+  FileUtils.rm_rf path, verbose: true
+
+  assert_raise RuntimeError do
+    FileUtils.rm_r path, verbose: true, force: false
+  end
+end
+
+assert 'FileUtils#copy_file' do
+  src = File.join Dir.tmpdir, "copy_file_#{SecureRandom.hex}"
+  dst = File.join Dir.tmpdir, "copy_file_#{SecureRandom.hex}"
+
+  File.open src, 'w' do |f|
+    f.write 'test'
+  end
+
+  FileUtils.copy_file src, dst, verbose: true
+  File.open dst do |f|
+    assert_equal 'test', f.read
+  end
+
+  FileUtils.remove_file src
+  FileUtils.remove_file dst
+end
+
+assert 'FileUtils#cp' do
+  src1 = File.join Dir.tmpdir, "cp_#{SecureRandom.hex}"
+  src2 = File.join Dir.tmpdir, "cp_#{SecureRandom.hex}"
+  dst = File.join Dir.tmpdir, "cp_#{SecureRandom.hex}"
+
+  FileUtils.mkdir dst
+
+  File.open src1, 'w' do |f|
+    f.write 'test1'
+  end
+  File.open src2, 'w' do |f|
+    f.write 'test2'
+  end
+
+  FileUtils.cp src1, dst, verbose: true
+  assert_true File.exists? File.join(dst, File.basename(src1))
+  File.open File.join(dst, File.basename(src1)) do |f|
+    assert_equal 'test1', f.read
+  end
+  FileUtils.remove_file File.join(dst, File.basename(src1))
+
+  FileUtils.cp [src1, src2], dst, verbose: true
+  assert_true File.exists? File.join(dst, File.basename(src1))
+  assert_true File.exists? File.join(dst, File.basename(src2))
+
+  FileUtils.remove_file src1
+  FileUtils.remove_file src2
+  FileUtils.rm_r dst
 end

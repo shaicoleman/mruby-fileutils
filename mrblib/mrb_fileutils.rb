@@ -105,6 +105,83 @@ module FileUtils
   end
   module_function :rmdir
 
+  def remove_file(path, opts = {})
+    File.unlink path
+  rescue
+    raise unless opts[:force]
+  end
+
+  def rm_f list, opts = {}
+    list = [list] unless list.kind_of? Array
+    opts[:force] = true if opts[:force].nil?
+
+    _output_message "rm#{opts[:force] ? ' -f' : ''} #{list.join ' '}" if opts[:verbose]
+    return if opts[:noop]
+
+    list.each do |p|
+      remove_file p, opts
+    end
+  end
+
+  def rm_r list, opts = {}
+    list = [list] unless list.kind_of? Array
+
+    _output_message "rm -r#{opts[:force] ? 'f' : ''} #{list.join ' '}" if opts[:verbose]
+    return if opts[:noop]
+
+    list.each do |path|
+      if File.directory? path
+        Dir.entries(path).each do |ent|
+          next if ent == '.' || ent == '..'
+          ent_path = File.join path, ent
+          if File.directory? ent_path
+            rm_r ent_path, opts
+          else
+            remove_file ent_path, opts
+          end
+        end
+        rmdir path, opts
+      else
+        remove_file path, opts
+      end
+    end
+  end
+
+  def rm_rf list, opts = {}
+    opts[:force] = true if opts[:force].nil?
+    rm_r list, opts
+  end
+
+  module_function :remove_file, :rm_f, :rm_r, :rm_rf
+
+  def copy_file src, dst, preserve = false
+    File.open src, 'rb' do |s|
+      File.open dst, 'wb', s.stat.mode do |d|
+        d.write s.read
+      end
+    end
+
+    # TODO:
+    # copy_metadata src, dst if preserve
+  end
+
+  def cp src, dst, opts = {}
+    _output_message "cp#{opts[:preserve] ? ' -p' : ''} #{[src,dst].flatten.join ' '}" if opts[:verbose]
+    return if opts[:noop]
+
+    src = [src] unless src.is_a? Array
+
+    src.each do |s|
+      if File.directory? dst
+        copy_file s, File.join(dst, File.basename(s)), opts[:preserve]
+      else
+        copy_file s, dst, opts[:preserve]
+      end
+    end
+  end
+
+  module_function :copy_file, :cp
+
   def self._output_message(msg)
     $stderr.puts msg
   end
